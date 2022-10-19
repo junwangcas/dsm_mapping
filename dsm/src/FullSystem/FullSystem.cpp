@@ -331,10 +331,13 @@ namespace dsm
 
 		Utils::Time t1 = std::chrono::steady_clock::now();
 
+		// 获取windows中的所有keyframe，有可能就不是一个
 		const auto& allKeyframes = this->lmcw->allKeyframes();
+		std::cout << __FUNCTION__ << " get key frames " << allKeyframes.size();
 
 		if (allKeyframes.empty())
 		{
+		    // 当之前的keyframes中还没有东西的时候，把这一帧当成关键帧
 			// insert frame as first keyframe
 			frame->setTrackingResult(nullptr, Sophus::SE3f(), AffineLight());
 			this->lmcw->insertNewKeyframe(frame);
@@ -349,13 +352,15 @@ namespace dsm
 		{
 			// try to initialize
 			Sophus::SE3f firstToSecond;
+			// 首先算出相对位置
 			if (this->initializer->initialize(frame, firstToSecond))
 			{
-				// rescale to norm(t) = 0.1m
+				// rescale to norm(t) = 0.1m；这里把translation固定到10cm
 				firstToSecond.translation() /= firstToSecond.translation().norm();
 				firstToSecond.translation() *= 0.1f;
 
-				// set initialization pose as tracking result
+				// 这里把前面初步估计的pose给过来
+				// set initialization pose as tracking result；
 				const auto& firstKF = allKeyframes[0];
 				frame->setTrackingResult(firstKF.get(), firstToSecond.inverse(), AffineLight());
 
@@ -393,6 +398,7 @@ namespace dsm
 
 	void FullSystem::trackFrame(int id, double timestamp, unsigned char* image)
 	{
+	    // 这里是外部进来的入口
 		this->lastWasKF = false;
 
 		auto& settings = Settings::getInstance();
@@ -400,7 +406,7 @@ namespace dsm
 		// track frame
 		Utils::Time t1 = std::chrono::steady_clock::now();
 
-		// Create new frame
+		// Create new frame， 一个图像创建一个frame
 		std::shared_ptr<Frame> trackingNewFrame = std::make_shared<Frame>(id, timestamp, image);
 
 		if (settings.debugPrintLog)
@@ -415,7 +421,7 @@ namespace dsm
 			return;
 		}
 
-		// initialization
+		// initialization；算一个相对pose吧，然后加上点的估计
 		if (!this->initialized)
 		{
 			this->initialized = this->initialize(trackingNewFrame);
@@ -770,6 +776,8 @@ namespace dsm
 
 	void FullSystem::createCandidates(const std::shared_ptr<Frame>& frame)
 	{
+	    // 在两个地方调用了，一个是初始化，一个是正常跟踪的过程中
+	    // 创建候选点
 		const auto& calib = GlobalCalibration::getInstance();
 		const auto& settings = Settings::getInstance();
 
@@ -778,11 +786,12 @@ namespace dsm
 		const int32_t distToBorder = Pattern::padding() + 1;
 
 		// Create new candidates in the frame
-		// They have to be homogeneously distributed in the image	
+		// They have to be homogeneously distributed in the image 用this的好处是，一看就是类变量
+		// 这里就是把那些梯度大的点获取出来
 		int num = this->pointDetector->detect(frame, (int)settings.numCandidates, this->pixelMask,
 											  this->outputWrapper);
 
-		// create candidates
+		// create candidates；
 		auto& candidates = frame->candidates();
 		candidates.reserve(num);
 
@@ -817,11 +826,12 @@ namespace dsm
 		auto& activePoints = frame->activePoints();
 		activePoints.reserve(candidates.size());
 		
-		//std::cout << "Select pixels: " << Utils::elapsedTime(t1, t2) << std::endl;
+		std::cout << __FUNCTION__ << "Select pixels: " << Utils::elapsedTime(t1, t2) << std::endl;
 	}
 
 	void FullSystem::trackCandidates(const std::shared_ptr<Frame>& frame)
 	{
+	    //
 		const auto& settings = Settings::getInstance();
 
 		const auto& activeKeyframes = this->lmcw->activeWindow();
@@ -891,11 +901,13 @@ namespace dsm
 			// vector of candidates to proccess
 			std::vector<CandidatePoint*> toObserve;
 
+			// 对每一个关键帧进行遍历
 			for (const auto& kf : activeKeyframes)
 			{
 				const auto& candidates = kf->candidates();
 				for (const auto& cand : candidates)
 				{
+				    // 检查每一个kf的cand
 					// skip if the point is an outlier or is not visible
 					if (cand->status() == CandidatePoint::OUTLIER ||
 						cand->lastObservation() == CandidatePoint::OOB)
@@ -904,7 +916,7 @@ namespace dsm
 					}
 					else
 					{
-						// if still visible
+						// if still visible; 如果cand是好的，就加入进来
 						toObserve.push_back(cand.get());
 					}
 				}
@@ -923,6 +935,7 @@ namespace dsm
 				start = end;
 				end = std::min(end + step, itemsCount);
 
+				// 之前关键帧的点，当前帧
 				this->threadPool->addJob(PointObserver(toObserve, frame, start, end));
 			}
 
@@ -933,6 +946,7 @@ namespace dsm
 
 	void FullSystem::refineCandidates()
 	{
+	    // 猜测是固定pose，然后优化深度点
 		const auto& settings = Settings::getInstance();
 
 		const auto& calib = GlobalCalibration::getInstance();
@@ -1038,7 +1052,7 @@ namespace dsm
 		else
 		{
 			// try to refine candidates
-			// do it in parallel
+			// do it in parallel； 每一个点的优化，都是单独进行的
 			int itemsCount = (int)toOptimize.size();
 
 			int start = 0;
@@ -1075,16 +1089,17 @@ namespace dsm
 
 	void FullSystem::createKeyframeAndOptimize(const std::shared_ptr<Frame>& frame)
 	{
+	    // 这里有两处用到了，一个是初始化，一个是do mapping
 		this->lastWasKF = true;
 
 		const auto& settings = Settings::getInstance();
 
 		Utils::Time t1 = std::chrono::steady_clock::now();
 
-		// initialize candidates
+		// initialize candidates； 初始化那些候选点的深度，因为前面都还是2d的点
 		this->trackCandidates(frame);
 
-		// insert new keyframe
+		// insert new keyframe; 把当前帧插入到窗口结构体中
 		this->lmcw->insertNewKeyframe(frame);
 
 		if (settings.debugPrintLog && settings.debugLogKeyframes)
@@ -1108,6 +1123,7 @@ namespace dsm
 		this->lmcw->activatePoints(this->ceresOptimizer);
 
 		// optimize
+		// 这里应该是个全局优化
 		const auto& activeKeyframes = this->lmcw->activeWindow();
 		this->ceresOptimizer->solve(activeKeyframes);
 
@@ -1718,9 +1734,11 @@ namespace dsm
 
 	void FullSystem::PointObserver::operator()()
 	{
+	    // 选择一个历史的点，投到当前坐标下面来
 		// compute candidate observation from begin to end only
 		for (int i = this->begin; i < this->end; ++i)
 		{
+		    // 使用历史当中的某一个cand，去和当前的frame进行比较;这个比较用到了pose，极线搜索
 			CandidatePoint* candPoint = this->candidates[i];
 
 			// observe in the new tracked frame
@@ -1742,6 +1760,7 @@ namespace dsm
 		{
 			CandidatePoint* candPoint = this->candidates[i];
 
+			// 这里就是优化逆深度
 			// optimize inverse depth in all active keyframes
 			candPoint->optimize(this->activeFrames);
 		}

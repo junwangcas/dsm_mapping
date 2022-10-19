@@ -176,6 +176,7 @@ namespace dsm
 
 	CandidatePoint::ObserveStatus CandidatePoint::observe(const std::shared_ptr<Frame>& other)
 	{
+	    // 用这个点，去和frame中的所有点进行匹配
 		if (this->status_ == PointStatus::OUTLIER)
 		{
 			return ObserveStatus::SKIPPED;
@@ -247,7 +248,7 @@ namespace dsm
 
 		const Eigen::Matrix3f KRKinv = KR * Kinv;
 
-		// 3) Do epipolar line search
+		// 3) Do epipolar line search； 极线搜索
 		const int numEvaluations = (int)(epiLineLength + 0.5f);
 
 		const float* const newImage = other->image(this->detectedLevel_);

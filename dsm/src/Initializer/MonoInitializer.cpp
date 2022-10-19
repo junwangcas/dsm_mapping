@@ -74,6 +74,7 @@ namespace dsm
 
 	void MonoInitializer::setReference(const std::shared_ptr<Frame>& firstFrame)
 	{
+	    // 设置参考帧
 		this->reset();
 
 		const auto& calib = GlobalCalibration::getInstance();
@@ -96,11 +97,13 @@ namespace dsm
 
 		// reference image
 		this->refImage = cv::Mat(calib.height(0), calib.width(0), CV_32F, (void*)this->reference->image(0));
+		// 这里把数据强制转换成了8bit
 		this->refImage.convertTo(this->refImage, CV_8U);	// convert to 8-bit
 	}
 
 	bool MonoInitializer::initialize(const std::shared_ptr<Frame>& frame, Sophus::SE3f& pose)
 	{
+	    // 只有在初始化中调用一次
 		Utils::Time t1 = std::chrono::steady_clock::now();
 
 		bool initOk = false;
@@ -123,6 +126,7 @@ namespace dsm
 		newImg.convertTo(newImg, CV_8U);
 
 		// track candidates in image
+		// 首先用当前的图像和上一帧图像进行对比。是使用光流来找对应点的
 		this->trackPointsInImage(this->refImage, newImg, this->refPoints, this->prevPoints);
 
 		if (this->refPoints.size() < this->minNumTracked)
@@ -138,7 +142,8 @@ namespace dsm
 		{
 			initOk = true;
 
-			// from cv::Mat to Sophus::SE3f
+			// from cv::Mat to Sophus::SE3f；
+			// 就是通过模型选择部分，计算出的pose，这里就是计算pose, 没有对点进行处理
 			Eigen::Matrix4f eigenPose;
 			eigenPose(0, 0) = motion.at<float>(0, 0); eigenPose(0, 1) = motion.at<float>(0, 1); eigenPose(0, 2) = motion.at<float>(0, 2); eigenPose(0, 3) = motion.at<float>(0, 3);
 			eigenPose(1, 0) = motion.at<float>(1, 0); eigenPose(1, 1) = motion.at<float>(1, 1); eigenPose(1, 2) = motion.at<float>(1, 2); eigenPose(1, 3) = motion.at<float>(1, 3);
@@ -162,11 +167,11 @@ namespace dsm
 				cv::line(newImg, p1, p2, cv::Scalar(0, 255, 0), 1);
 			}
 
-			//if (initOk)
-			//{
-			//	cv::imwrite("initRefImg.png", this->refImage);
-			//	cv::imwrite("initOpticalFlow.png", newImg);
-			//}
+			if (initOk)
+			{
+				cv::imwrite("initRefImg.png", this->refImage);
+				cv::imwrite("initOpticalFlow.png", newImg);
+			}
 
 			this->outputWrapper->publishProcessFrame(newImg);
 		}

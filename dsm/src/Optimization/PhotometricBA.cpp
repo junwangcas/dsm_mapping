@@ -193,16 +193,20 @@ namespace dsm
 		// add all cameras, points and observations
 		for (const std::shared_ptr<Frame>& kf : active)
 		{
+		    // 遍历视野内所有的关键帧
 			// add camera
 			problem.addParameterBlock(kf->frameBlock().get());
 			ordering->AddElementToGroup(kf->frameBlock()->getParameters(), FrameParameterBlock::Group);
 			this->activeKeyframes.push_back(kf.get());
 
 			// fix first camera, this fixes unobservable gauge freedoms
+			// 这里fix 的frame
 			if (kf->keyframeID() == 0)
 			{
 				problem.setParameterBlockConstant(kf->frameBlock().get());
-			}			
+			} else {
+			    problem.setParameterBlockConstant(kf->frameBlock().get());
+			}
 
 			for (const auto& point : kf->activePoints())
 			{

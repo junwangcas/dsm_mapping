@@ -122,7 +122,7 @@ namespace dsm
 						cv::cvtColor(image, image, cv::COLOR_BGR2GRAY);
 					}
 
-					// undistort
+					// undistort; 首先还是做了一次undistort, 这个不知道需要
 					undistorter.undistort(image, image);
 
 					if (DSM == nullptr)
@@ -175,7 +175,7 @@ namespace dsm
 
 int main(int argc, char *argv[])
 {
-	// input arguments
+	// input arguments, 输入参数，图像，时间戳索引，标定文件，setting
 	std::string imageFolder, timestampFile, calibFile, settingsFile;
 
 	// Configuration
@@ -212,7 +212,7 @@ int main(int argc, char *argv[])
 
 	std::cout << "\n";
 
-	// read calibration
+	// read calibration; 标定文件都是在
 	dsm::Undistorter undistorter(calibFile);
 	if (!undistorter.isValid())
 	{

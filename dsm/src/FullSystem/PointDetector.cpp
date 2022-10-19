@@ -183,7 +183,7 @@ namespace dsm
 		}
 
 		Utils::Time t2 = std::chrono::steady_clock::now();
-		//std::cout << "Detect points: " << Utils::elapsedTime(t1, t2) << "\n";
+		std::cout << __FUNCTION__ << "Detect points: " << Utils::elapsedTime(t1, t2) << "\n";
 
 		// visualize
 		if (outputWrapper && Settings::getInstance().debugShowPointDetection)

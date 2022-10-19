@@ -46,13 +46,14 @@ namespace dsm
 		type_(Type::FRAME),
 		status_(Status::INACTIVE)
 	{
+	    // 获取设置和标定参数
 		const auto& settings = Settings::getInstance();
 		const auto& calib = GlobalCalibration::getInstance();
 
 		// image pyramids
 		this->images_ = std::make_unique<ImagePyramid<float>>(calib.levels(), image);
 
-		// gradient pyramids
+		// gradient pyramids，获取梯度
 		this->gradients_ = std::make_unique<GradientPyramid<float>>(calib.levels(), *this->images_);
 
 		// identity poses

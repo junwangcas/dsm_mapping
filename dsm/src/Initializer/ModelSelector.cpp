@@ -70,6 +70,7 @@ namespace dsm
 							   const std::vector<cv::Point2f> &corr2,
 							   cv::Mat& motion)
 	{
+	    // 平面初始化，非平面初始化
 		// check the number of correspondences
 		// at least 8 to be able to estimate something
 		if (corr1.size() < 8 ||corr1.size() != corr2.size())

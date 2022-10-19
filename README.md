@@ -1,3 +1,7 @@
+# debug test
+./EurocExample ~/dataset/EuRoc/V1_01_easy/mav0/cam0/data/ ../../Examples/EurocData/Timestamps/V1_01_easy.txt ../../Examples/EurocData/calib0.txt
+
+
 # DSM: Direct Sparse Mapping
 
 **Authors:** Jon Zubizarreta, Iker Aguinaga, Juan D. Tardós and J. M. M. Montiel.
