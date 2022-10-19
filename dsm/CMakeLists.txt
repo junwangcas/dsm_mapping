@@ -179,3 +179,5 @@ target_link_libraries(${LIBRARY_NAME}
 	${CERES_LIBRARIES})
 	
 set_target_properties(${LIBRARY_NAME} PROPERTIES FOLDER "DSM")
+
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/src/testing)
