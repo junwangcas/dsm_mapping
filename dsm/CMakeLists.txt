@@ -110,6 +110,7 @@ set(SOURCE_FILES
 	${root}/Utils/GlobalCalibration.cpp
 	${root}/Utils/Undistorter.cpp
 	${root}/Utils/EurocReader.cpp
+	${root}/Utils/pose_generator.cpp
 	${root}/DataStructures/AffineLight.cpp
 	${root}/DataStructures/Frame.cpp
 	${root}/DataStructures/CandidatePoint.cpp
@@ -140,7 +141,7 @@ set(SOURCE_FILES
 	${root}/FullSystem/DSMLib.cpp
 	${root}/Initializer/MonoInitializer.cpp
 	${root}/Initializer/ModelSelector.cpp
-	${root}/Visualizer/IVisualizer.cpp	
+	${root}/Visualizer/IVisualizer.cpp
 	)
 		
 # Organize the source and header files into groups

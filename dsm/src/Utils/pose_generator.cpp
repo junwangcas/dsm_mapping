@@ -88,3 +88,33 @@ bool PoseGenerator::GetPoseByTime(const double time_stamp, Eigen::Matrix4f &pose
     std::cout << __FUNCTION__ << " get pose success: " << std::to_string(this->time_stamps_[idx]) << "\n";
     return true;
 }
+
+void PoseGenerator::SaveToFile(const double time_stamp, const Eigen::Matrix4f camPose)
+{
+    if (!saveFile_) {
+        return;
+    }
+    std::string file_name = "/home/junwangcas/Documents/temp/dsm-master/Examples/EurocData/temp/V1_01_easy_short.txt";
+
+    std::string line_str = "";
+    line_str = line_str + std::to_string(uint64_t(time_stamp * 1e9)) + ",";
+
+    Eigen::Quaternionf q = Eigen::Quaternionf(camPose.block<3, 3>(0, 0));
+    Eigen::Vector3f p = camPose.block<3, 1>(0, 3);
+
+    line_str += std::to_string(p.x()) + "," + std::to_string(p.y()) + "," + std::to_string(p.z()) + ",";
+
+    line_str += std::to_string(q.w()) + "," + std::to_string(q.x()) + "," + std::to_string(q.y()) + "," + std::to_string(q.z()) + "\n";
+
+    std::ofstream fout(file_name, std::ios::app);
+    fout << line_str;
+    fout.close();
+}
+
+void PoseGenerator::PrintPose(const Eigen::Matrix4f camPose)
+{
+    Eigen::Quaternionf q = Eigen::Quaternionf(camPose.block<3, 3>(0, 0));
+    Eigen::Vector3f p = camPose.block<3, 1>(0, 3);
+
+    std::cout << p.transpose() << ", " << q.coeffs().transpose() << "\n";
+}

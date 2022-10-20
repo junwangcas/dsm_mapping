@@ -5,6 +5,7 @@
 #include <Eigen/Core>
 #include <Eigen/Geometry>
 #include <fstream>
+#include "sophus/se3.hpp"
 
 class PoseGenerator {
 public:
@@ -20,6 +21,12 @@ public:
 public:
     bool ReadEurocPose(const std::string file_path);
     bool GetPoseByTime(const double time_stamp, Eigen::Matrix4f &pose, double time_threshold = 0.01); // sec,
+    void SaveToFile(const double time_stamp, const Eigen::Matrix4f camPose);
+    void PrintPose(const Eigen::Matrix4f camPose);
+
+public:
+    bool usePoseGen_ = true;
+    bool saveFile_ = false;
 
 
 private:

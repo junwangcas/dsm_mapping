@@ -33,6 +33,7 @@
 #include "FullSystem/FullSystem.h"
 #include "Utils/Undistorter.h"
 #include "Utils/EurocReader.h"
+#include "Utils/pose_generator.h"
 
 // Use the best GPU available for rendering (visualization)
 #ifdef WIN32
@@ -90,6 +91,14 @@ namespace dsm
 
 			// create DSM
 			std::unique_ptr<FullSystem> DSM;
+
+            {
+                // pose reader
+//                std::string file_name = "/home/junwangcas/dataset/EuRoc/V1_01_easy/mav0/state_groundtruth_estimate0/data.csv";
+                std::string file_name = "/home/junwangcas/Documents/temp/dsm-master/Examples/EurocData/temp/V1_01_easy_short.txt";
+                PoseGenerator& pose_generator = PoseGenerator::Instance();
+                pose_generator.ReadEurocPose(file_name);
+            }
 
 			while (!this->shouldStop)
 			{

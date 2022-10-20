@@ -43,6 +43,7 @@
 #include "Optimization/PhotometricBA.h"
 #include "Optimization/PhotometricResidual.h"
 #include "Visualizer/IVisualizer.h"
+#include "Utils/pose_generator.h"
 
 #include "opencv2/highgui.hpp"
 #include "opencv2/features2d.hpp"
@@ -339,7 +340,19 @@ namespace dsm
 		{
 		    // 当之前的keyframes中还没有东西的时候，把这一帧当成关键帧
 			// insert frame as first keyframe
-			frame->setTrackingResult(nullptr, Sophus::SE3f(), AffineLight());
+			if (!PoseGenerator::Instance().usePoseGen_) {
+                frame->setTrackingResult(nullptr, Sophus::SE3f(), AffineLight());
+			} else {
+                // jwpose
+                Eigen::Matrix4f pose_ei;
+                if (!PoseGenerator::Instance().GetPoseByTime(frame->timestamp(), pose_ei)) {
+                    std::cout << __FUNCTION__ << " get pose failed " << frame->timestamp() << "\n";
+                    exit(0);
+                }
+                std::cout << __FUNCTION__ << " get pose success " << frame->timestamp() << "\n";
+                PoseGenerator::Instance().PrintPose(pose_ei);
+                frame->setTrackingResult(nullptr, Sophus::SE3f(pose_ei), AffineLight());
+			}
 			this->lmcw->insertNewKeyframe(frame);
 
 			// create candidates
@@ -357,7 +370,25 @@ namespace dsm
 			{
 				// rescale to norm(t) = 0.1m；这里把translation固定到10cm
 				firstToSecond.translation() /= firstToSecond.translation().norm();
-				firstToSecond.translation() *= 0.1f;
+				firstToSecond.translation() *= 0.04f;
+                std::cout <<  __FUNCTION__ << "raw firstToSecond " << "\n";
+                PoseGenerator::Instance().PrintPose(firstToSecond.matrix());
+
+				if (PoseGenerator::Instance().usePoseGen_)
+                {
+                    // jwpose
+                    Eigen::Matrix4f pose_ei;
+                    if (!PoseGenerator::Instance().GetPoseByTime(frame->timestamp(), pose_ei)) {
+                        std::cout << __FUNCTION__ << " get pose failed " << frame->timestamp() << "\n";
+                        exit(0);
+                    }
+                    std::cout << __FUNCTION__ << " get pose success " << frame->timestamp() << "\n";
+                    // first * firstToSecond = second;
+                    firstToSecond = Sophus::SE3f(pose_ei).inverse() * allKeyframes[0]->camToWorld();
+
+                    std::cout <<  __FUNCTION__ << " my firstToSecond " << "\n";
+                    PoseGenerator::Instance().PrintPose(firstToSecond.matrix());
+                }
 
 				// 这里把前面初步估计的pose给过来
 				// set initialization pose as tracking result；
@@ -369,7 +400,7 @@ namespace dsm
 				this->lastTrackedMotion = Sophus::SE3f();
 
 				Utils::Time t2 = std::chrono::steady_clock::now();
-				std::cout << "Done initialization in " << Utils::elapsedTime(t1, t2) << "ms" << std::endl;
+				std::cout << __FUNCTION__ << "Done initialization in " << Utils::elapsedTime(t1, t2) << "ms" << std::endl;
 
 				// insert frame as keyframe and optimize
 				this->createKeyframeAndOptimize(frame);
@@ -425,6 +456,7 @@ namespace dsm
 		if (!this->initialized)
 		{
 			this->initialized = this->initialize(trackingNewFrame);
+			PoseGenerator::Instance().SaveToFile(timestamp, trackingNewFrame->thisToParentPose().matrix());
 			return;
 		}
 
@@ -509,6 +541,9 @@ namespace dsm
 			const Eigen::Matrix4f camPose = (this->lastTrackedFrame->parent()->camToWorld() * 
 											 this->lastTrackedFrame->thisToParentPose()).matrix();
 			this->outputWrapper->publishCurrentFrame(camPose);
+            {
+                PoseGenerator::Instance().SaveToFile(timestamp, camPose);
+            }
 
 			//timings			
 			this->outputWrapper->publishCamTrackingTime(time);
@@ -525,10 +560,29 @@ namespace dsm
 	void FullSystem::trackNewFrame(const std::shared_ptr<Frame>& frame)
 	{
 		Utils::Time t1 = std::chrono::steady_clock::now();
+        {
+            bool isprint = false;
+            if (isprint && lastTrackedFrame != nullptr && trackingReference != nullptr && lastTrackedFrame->parent() !=
+            nullptr && trackingReference->reference() != nullptr) {
+                std::cout << __FUNCTION__  << "frame->frameID() " << frame->frameID() << "\n" <<
+                          "lastTrackedFrame->frameID() " << this->lastTrackedFrame->frameID() << "\n" <<
+                          "lastTrackedFrame->parent()->frameID() " << this->lastTrackedFrame->parent()->frameID() << "\n" <<
+                          "trackingReference->reference() " << this->trackingReference->reference()->frameID() << "\n";
+                std::cout << "------------------------------------------------------------\n";
+                /*frame->frameID() 22
+                lastTrackedFrame->frameID() 21
+                lastTrackedFrame->parent()->frameID() 12
+                trackingReference->reference() 12*/
+            }
+        }
 
-		// select tracking reference keyframe
+		// select tracking reference keyframe； 上一帧的pose，为啥要通过这种方式获得？直接不行吗？
 		Sophus::SE3f lastToWorldPose = this->lastTrackedFrame->parent()->camToWorld() *
 									   this->lastTrackedFrame->thisToParentPose();
+        {
+            // 这里会coredump, 因为这一帧不是keyframe, camToWorld，就没有填充
+            // std::cout << __FUNCTION__  << lastToWorldPose.translation().transpose() << ";;;;; " << lastTrackedFrame->camToWorld().translation().transpose() << "\n";
+        }
 
 		AffineLight lastToWorldLight = AffineLight::calcGlobal(this->lastTrackedFrame->parent()->affineLight(),
 															   this->lastTrackedFrame->thisToParentLight());
@@ -565,6 +619,7 @@ namespace dsm
 			}
 		}
 
+		// 跟踪参考是？ 与关键帧相同吗？ 上一个普通帧，上一个关键帧，当前帧
 		Frame* const reference = this->trackingReference->reference();
 
 		// pose prior -> constant velocity model
@@ -581,6 +636,7 @@ namespace dsm
 		// Track
 		// relative pose to reference keyframe
 		// relative affine light to reference keyframe
+		// 这里通过匹配的方法，对frame - ref 的pose进行优化
 		bool goodTracked = this->tracker->trackFrame(this->trackingReference, frame, frameToRefPose, frameToRefLight,
 													 errorDistribution, this->outputWrapper);
 
@@ -600,7 +656,7 @@ namespace dsm
 			return;
 		}
 
-		// save result
+		// save result； 把上面trackFrame计算的结果，保存起来
 		frame->setTrackingResult(reference, frameToRefPose, frameToRefLight);
 
 		// error distribution
