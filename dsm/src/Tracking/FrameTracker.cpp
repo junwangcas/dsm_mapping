@@ -136,6 +136,19 @@ namespace dsm
 		AffineLight affineLight(inOutLight);
 
 		// pose prior
+        if (PoseGenerator::Instance().usePoseGen_) {
+            Eigen::Matrix4f pose_ref;
+            if (!PoseGenerator::Instance().GetPoseByTime(reference->reference()->timestamp(), pose_ref)) {
+                std::cout << __FUNCTION__ << " get pose failed " << reference->reference()->timestamp() << "\n";
+                exit(0);
+            }
+            Eigen::Matrix4f pose_frm;
+            if (!PoseGenerator::Instance().GetPoseByTime(newFrame->timestamp(), pose_frm)) {
+                std::cout << __FUNCTION__ << " get pose failed " << newFrame->timestamp() << "\n";
+                exit(0);
+            }
+            inOutFrameToRef = Sophus::SE3f(pose_ref).inverse() * Sophus::SE3f(pose_frm);
+        }
 		Sophus::SE3f referenceToFrame = inOutFrameToRef.inverse();
 
 		// distribution
@@ -160,7 +173,7 @@ namespace dsm
 			if (pcUpdated)
 			{			
 				this->problem->computeJacobAtIdentity(reference, lvl);
-			}	
+			}
 
 			Utils::Time t2 = std::chrono::steady_clock::now();
 			pcTime += Utils::elapsedTime(t1, t2);
@@ -200,7 +213,12 @@ namespace dsm
 				solveTime += Utils::elapsedTime(t3, t4);
 
 				// update parameters
-				const Sophus::SE3f newReferenceToFrame = referenceToFrame * Sophus::SE3f::exp(-inc.head<6>());				// pose
+                Sophus::SE3f newReferenceToFrame;
+                if (PoseGenerator::Instance().usePoseGen_) {
+                    newReferenceToFrame = referenceToFrame;
+                } else {
+                    newReferenceToFrame = referenceToFrame * Sophus::SE3f::exp(-inc.head<6>());				// pose
+                }
 				const AffineLight newAffineLight = AffineLight::calcRelative(AffineLight(inc[6], inc[7]), affineLight);		// affine light
 
 				// evaluate the residual again with the updated pose

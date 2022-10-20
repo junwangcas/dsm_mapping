@@ -61,13 +61,18 @@ bool PoseGenerator::ParseLine(const std::string &line, Eigen::Matrix4f &pose, do
     Eigen::Quaternionf q;
     Eigen::Vector3f p;
     std::istringstream iss(line);
-    char dotc = ',';
-    iss >> time_stamp >> dotc >> p.x() >> dotc >> p.y() >> dotc >> p.z() >> dotc >> q.w() >> dotc >> q.x() >> dotc >> q.y() >> dotc >> q.z();
+    if (data_set_type_ == DATATYPE::EUROC) {
+        char dotc = ',';
+        iss >> time_stamp >> dotc >> p.x() >> dotc >> p.y() >> dotc >> p.z() >> dotc >> q.w() >> dotc >> q.x() >> dotc >> q.y() >> dotc >> q.z();
+        time_stamp = time_stamp / 1e9; // transform to seconds
+    } else if (data_set_type_ == DATATYPE::VR) {
+        char dotc = ' ';
+        iss >> time_stamp >> dotc >> p.x() >> dotc >> p.y() >> dotc >> p.z() >> dotc >> q.x() >> dotc >> q.y() >> dotc >> q.z() >> dotc >> q.w();
+    }
 //    std::cout << time_stamp << ", " << p.y() <<  ", " << q.z() << "\n"; // "\n";
     pose = Eigen::Matrix4f::Identity();
     pose.block<3, 3>(0, 0) = q.toRotationMatrix();
     pose.block<3, 1>(0, 3) = p;
-    time_stamp = time_stamp / 1e9; // transform to seconds
     return true;
 }
 
@@ -94,7 +99,7 @@ void PoseGenerator::SaveToFile(const double time_stamp, const Eigen::Matrix4f ca
     if (!saveFile_) {
         return;
     }
-    std::string file_name = "/home/junwangcas/Documents/temp/dsm-master/Examples/EurocData/temp/V1_01_easy_short.txt";
+    std::string file_name = pose_save_file_; //"/home/junwangcas/Documents/temp/dsm-master/Examples/EurocData/temp/V1_01_easy_short.txt";
 
     std::string line_str = "";
     line_str = line_str + std::to_string(uint64_t(time_stamp * 1e9)) + ",";
@@ -117,4 +122,9 @@ void PoseGenerator::PrintPose(const Eigen::Matrix4f camPose)
     Eigen::Vector3f p = camPose.block<3, 1>(0, 3);
 
     std::cout << p.transpose() << ", " << q.coeffs().transpose() << "\n";
+}
+
+void PoseGenerator::SetSavePoseFile(const std::string &file_path)
+{
+    pose_save_file_ = file_path;
 }

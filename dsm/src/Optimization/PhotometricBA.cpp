@@ -204,8 +204,16 @@ namespace dsm
 			if (kf->keyframeID() == 0)
 			{
 				problem.setParameterBlockConstant(kf->frameBlock().get());
-			} else {
-			    problem.setParameterBlockConstant(kf->frameBlock().get());
+			}
+
+			if (PoseGenerator::Instance().usePoseGen_) {
+                problem.setParameterBlockConstant(kf->frameBlock().get());
+                Eigen::Matrix4f pose_ei;
+                if (!PoseGenerator::Instance().GetPoseByTime(kf->timestamp(), pose_ei)) {
+                    std::cout << __FUNCTION__ << " get pose failed " << kf->timestamp() << "\n";
+                    exit(0);
+                }
+                kf->setCamToWorld(Sophus::SE3f(pose_ei));
 			}
 
 			for (const auto& point : kf->activePoints())

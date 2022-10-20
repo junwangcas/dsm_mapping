@@ -32,6 +32,7 @@
 
 #include "PhotometricBAConfig.h"
 #include "LeastSquares/LeastSquaresProblem.h"
+#include "Utils/pose_generator.h"
 
 namespace dsm
 {

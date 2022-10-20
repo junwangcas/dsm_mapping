@@ -7,6 +7,11 @@
 #include <fstream>
 #include "sophus/se3.hpp"
 
+enum DATATYPE {
+    VR,
+    EUROC
+};
+
 class PoseGenerator {
 public:
     ~PoseGenerator() {
@@ -23,10 +28,12 @@ public:
     bool GetPoseByTime(const double time_stamp, Eigen::Matrix4f &pose, double time_threshold = 0.01); // sec,
     void SaveToFile(const double time_stamp, const Eigen::Matrix4f camPose);
     void PrintPose(const Eigen::Matrix4f camPose);
+    void SetSavePoseFile(const std::string &file_path);
 
 public:
-    bool usePoseGen_ = true;
+    bool usePoseGen_ = false;
     bool saveFile_ = false;
+    DATATYPE data_set_type_ = DATATYPE::EUROC;
 
 
 private:
@@ -38,6 +45,7 @@ private:
 private:
     std::vector<Eigen::Matrix4f> poses_;
     std::vector<double> time_stamps_; // seconds
+    std::string pose_save_file_;
 };
 
 

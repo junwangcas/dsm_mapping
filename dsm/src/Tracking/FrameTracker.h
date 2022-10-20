@@ -30,7 +30,7 @@
 #include "DataStructures/AffineLight.h"
 #include "Utils/Settings.h"
 #include "Utils/EigenTypes.h"
-
+#include "Utils/pose_generator.h"
 #include "sophus/se3.hpp"
 
 namespace dsm
