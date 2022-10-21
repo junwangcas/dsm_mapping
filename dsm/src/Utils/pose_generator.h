@@ -31,9 +31,9 @@ public:
     void SetSavePoseFile(const std::string &file_path);
 
 public:
-    bool usePoseGen_ = false;
+    bool usePoseGen_ = true;
     bool saveFile_ = false;
-    DATATYPE data_set_type_ = DATATYPE::EUROC;
+    DATATYPE data_set_type_ = DATATYPE::VR;
 
 
 private:

@@ -32,7 +32,7 @@
 #include "QtVisualizer.h"
 #include "FullSystem/FullSystem.h"
 #include "Utils/Undistorter.h"
-#include "Utils/EurocReader.h"
+#include "Utils/VRReader.h"
 #include "Utils/pose_generator.h"
 
 // Use the best GPU available for rendering (visualization)
@@ -53,7 +53,7 @@ namespace dsm
 		inline Processor() { this->shouldStop = false; }
 		inline ~Processor() { this->join(); }
 
-		inline void run(EurocReader& reader, Undistorter& undistorter, QtVisualizer& visualizer, std::string& settingsFile)
+		inline void run(VRReader& reader, Undistorter& undistorter, QtVisualizer& visualizer, std::string& settingsFile)
 		{
 			this->processThread = std::make_unique<std::thread>(&Processor::doRun, this,
 				std::ref(reader), std::ref(undistorter), std::ref(visualizer), std::ref(settingsFile));
@@ -76,7 +76,7 @@ namespace dsm
 
 	private:
 
-		inline void doRun(EurocReader& reader, Undistorter& undistorter, QtVisualizer& visualizer, std::string& settingsFile)
+		inline void doRun(VRReader& reader, Undistorter& undistorter, QtVisualizer& visualizer, std::string& settingsFile)
 		{
 			int id = 0;
 			cv::Mat image;
@@ -91,11 +91,8 @@ namespace dsm
 
 			// create DSM
 			std::unique_ptr<FullSystem> DSM;
-
             {
-                // pose reader
-//                std::string file_name = "/home/junwangcas/dataset/EuRoc/V1_01_easy/mav0/state_groundtruth_estimate0/data.csv";
-                std::string save_pose_file_name = "/home/junwangcas/Documents/temp/dsm-master/Examples/EurocData/temp/V1_01_easy.txt";
+                std::string save_pose_file_name = "/sdcard/test_case/data_set_with_gt/D2_001/groundTruth/trajectory_cam0.txt";
                 PoseGenerator& pose_generator = PoseGenerator::Instance();
                 pose_generator.SetSavePoseFile(save_pose_file_name);
                 pose_generator.ReadEurocPose(save_pose_file_name);
@@ -132,7 +129,7 @@ namespace dsm
 						cv::cvtColor(image, image, cv::COLOR_BGR2GRAY);
 					}
 
-					// undistort; 首先还是做了一次undistort, 这个不知道需要
+					// undistort
 					undistorter.undistort(image, image);
 
 					if (DSM == nullptr)
@@ -185,7 +182,7 @@ namespace dsm
 
 int main(int argc, char *argv[])
 {
-	// input arguments, 输入参数，图像，时间戳索引，标定文件，setting
+	// input arguments
 	std::string imageFolder, timestampFile, calibFile, settingsFile;
 
 	// Configuration
@@ -222,8 +219,8 @@ int main(int argc, char *argv[])
 
 	std::cout << "\n";
 
-	// read calibration; 标定文件都是在
-	dsm::Undistorter undistorter(calibFile);
+	// read calibration
+	dsm::Undistorter undistorter(calibFile, true);
 	if (!undistorter.isValid())
 	{
 		std::cout << "need camera calibration file..." << std::endl;
@@ -233,7 +230,7 @@ int main(int argc, char *argv[])
 	std::cout << "\n";
 
 	// read sequence
-	dsm::EurocReader reader(imageFolder, timestampFile, false);
+	dsm::VRReader reader(imageFolder, timestampFile, false);
 	if (!reader.open())
 	{
 		std::cout << "no images found ..." << std::endl;

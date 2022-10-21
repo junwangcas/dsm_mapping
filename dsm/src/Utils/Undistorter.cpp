@@ -33,7 +33,7 @@
 
 namespace dsm
 {
-	Undistorter::Undistorter(const std::string& calibFilename) :
+	Undistorter::Undistorter(const std::string& calibFilename, bool isFishEye) :
 		valid(false)
 	{
 		std::cout << "Reading Calibration from file: " << calibFilename << "\n";
@@ -116,8 +116,13 @@ namespace dsm
 		this->K_ = cv::getOptimalNewCameraMatrix(this->originalK_, this->distCoeffs_, cv::Size(this->in_width, this->in_height),
 												 0, cv::Size(this->out_width, this->out_height), nullptr, false);
 
-		cv::initUndistortRectifyMap(this->originalK_, this->distCoeffs_, cv::Mat(), this->K_,
-									cv::Size(this->out_width, this->out_height), CV_32F, this->mapx, this->mapy);
+    if (isFishEye) {
+      cv::fisheye::initUndistortRectifyMap(this->originalK_, this->distCoeffs_, cv::Mat(), this->K_,
+                                           cv::Size(this->out_width, this->out_height), CV_32F, this->mapx, this->mapy);
+		} else {
+      cv::initUndistortRectifyMap(this->originalK_, this->distCoeffs_, cv::Mat(), this->K_,
+                                  cv::Size(this->out_width, this->out_height), CV_32F, this->mapx, this->mapy);
+		}
 
 		std::cout << "Output calibration: " << this->K_.at<double>(0, 0) << " " << this->K_.at<double>(1, 1) << " " << 
 											   this->K_.at<double>(0, 2) << " " << this->K_.at<double>(1, 2) << std::endl;

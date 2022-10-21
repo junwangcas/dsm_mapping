@@ -35,7 +35,7 @@ namespace dsm
 	{
 	public:
 
-		Undistorter(const std::string& calibFilename);
+        Undistorter(const std::string& calibFilename, bool isFishEye = false);
 
 		~Undistorter();
 

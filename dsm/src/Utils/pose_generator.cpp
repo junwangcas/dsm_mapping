@@ -66,8 +66,20 @@ bool PoseGenerator::ParseLine(const std::string &line, Eigen::Matrix4f &pose, do
         iss >> time_stamp >> dotc >> p.x() >> dotc >> p.y() >> dotc >> p.z() >> dotc >> q.w() >> dotc >> q.x() >> dotc >> q.y() >> dotc >> q.z();
         time_stamp = time_stamp / 1e9; // transform to seconds
     } else if (data_set_type_ == DATATYPE::VR) {
-        char dotc = ' ';
-        iss >> time_stamp >> dotc >> p.x() >> dotc >> p.y() >> dotc >> p.z() >> dotc >> q.x() >> dotc >> q.y() >> dotc >> q.z() >> dotc >> q.w();
+        std::vector<std::string> strs;
+        std::string spacestr;
+        while (iss >> spacestr) {
+            strs.emplace_back(spacestr);
+        }
+        time_stamp = std::atof(strs[0].c_str());
+        p.x() = std::atof(strs[1].c_str());
+        p.y() = std::atof(strs[2].c_str());
+        p.z() = std::atof(strs[3].c_str());
+        q.x() = std::atof(strs[4].c_str());
+        q.y() = std::atof(strs[5].c_str());
+        q.z() = std::atof(strs[6].c_str());
+        q.w() = std::atof(strs[7].c_str());
+//        iss >> time_stamp >> spacestr >> p.x() >> spacestr >> p.y() >> spacestr >> p.z() >> spacestr >> q.x() >> spacestr >> q.y() >> spacestr >> q.z() >> spacestr >> q.w();
     }
 //    std::cout << time_stamp << ", " << p.y() <<  ", " << q.z() << "\n"; // "\n";
     pose = Eigen::Matrix4f::Identity();
@@ -91,6 +103,7 @@ bool PoseGenerator::GetPoseByTime(const double time_stamp, Eigen::Matrix4f &pose
 
     pose = Eigen::Matrix4f(this->poses_[idx]);
     std::cout << __FUNCTION__ << " get pose success: " << std::to_string(this->time_stamps_[idx]) << "\n";
+    PrintPose(pose);
     return true;
 }
 

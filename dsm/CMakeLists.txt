@@ -55,6 +55,7 @@ set(HEADER_FILES
 	${root}/Utils/EigenTypes.h
 	${root}/Utils/Undistorter.h
 	${root}/Utils/EurocReader.h
+	${root}/Utils/VRReader.h
 	${root}/Utils/Kernel.h
 	${root}/Thread/WorkerThread.h
 	${root}/Thread/WorkerThreadPool.h
@@ -111,6 +112,7 @@ set(SOURCE_FILES
 	${root}/Utils/Undistorter.cpp
 	${root}/Utils/EurocReader.cpp
 	${root}/Utils/pose_generator.cpp
+	${root}/Utils/VRReader.cpp
 	${root}/DataStructures/AffineLight.cpp
 	${root}/DataStructures/Frame.cpp
 	${root}/DataStructures/CandidatePoint.cpp

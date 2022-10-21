@@ -181,6 +181,17 @@ where
 
    * `<VIDEO_FILE>` Custom video file with a supported format by OpenCV.
 
+### 3.4 VR Example
+Run the executable as
+
+```sh
+./VRExample <~/*/Camera0/images/> <> <../../Examples/VRData/calib0.txt> <../../Examples/VRData/settings.txt>
+```
+
+./VRExample /sdcard/test_case/data_set_with_gt/forward_backward2/Camera0/images empty /sdcard/test_case/data_set_with_gt/forward_backward2/Camera0/calib0.txt ../../Examples/VRData/settings.txt
+
+Note that calib0.txt needs to be modified corresponding to the YVR calibration file.
+
 ## 4. Parameter options
 The system parameter options can be found in `settings.h`. Those can also be loaded using an external `.txt` file, such as the one in `Examples/EurocData/settings.txt`. The most relevant parameters are:
 
