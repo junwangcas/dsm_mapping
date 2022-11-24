@@ -822,8 +822,10 @@ namespace dsm
 
 	void FullSystem::trackCandidates(const std::shared_ptr<Frame>& frame)
 	{
+	  // 新的一帧来的之后
 		const auto& settings = Settings::getInstance();
 
+		// 获取当前帧相关的激活帧
 		const auto& activeKeyframes = this->lmcw->activeWindow();
 
 		if (settings.debugCandidates || (settings.debugPrintLog && settings.debugLogCandidatesTracking))
@@ -888,7 +890,7 @@ namespace dsm
 		}
 		else
 		{
-			// vector of candidates to proccess
+			// vector of candidates to proccess; 因为active frame 就是和当前帧相关的。
 			std::vector<CandidatePoint*> toObserve;
 
 			for (const auto& kf : activeKeyframes)
@@ -896,7 +898,7 @@ namespace dsm
 				const auto& candidates = kf->candidates();
 				for (const auto& cand : candidates)
 				{
-					// skip if the point is an outlier or is not visible
+					// skip if the point is an outlier or is not visible；如果这一点已经是被证明是outlier，或者跟当前帧没有关系，则不参加后续的操作。
 					if (cand->status() == CandidatePoint::OUTLIER ||
 						cand->lastObservation() == CandidatePoint::OOB)
 					{
@@ -916,13 +918,16 @@ namespace dsm
 
 			int start = 0;
 			int end = 0;
+			// 如果这里是单线程，那么 step就是所有点的大小, 假设为2
 			int step = (itemsCount + settings.mappingThreads - 1) / settings.mappingThreads;
 
+			//   这里是采用多线程来处理，如果有两个点，那么end = 0;
 			for (int i = 0; i < settings.mappingThreads; ++i)
 			{
 				start = end;
+				// end = 2
 				end = std::min(end + step, itemsCount);
-
+        //
 				this->threadPool->addJob(PointObserver(toObserve, frame, start, end));
 			}
 
@@ -1723,6 +1728,7 @@ namespace dsm
 		{
 			CandidatePoint* candPoint = this->candidates[i];
 
+			// 完全并行化的，每一个点都是单独来做
 			// observe in the new tracked frame
 			candPoint->observe(this->target);
 		}

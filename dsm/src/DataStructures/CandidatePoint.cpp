@@ -176,6 +176,11 @@ namespace dsm
 
 	CandidatePoint::ObserveStatus CandidatePoint::observe(const std::shared_ptr<Frame>& other)
 	{
+	  // 返回值：
+	  // SKIPPED：跳过。 如果这个点的状态是外点；
+	  // BAD_EPILINE: 核线状态不好
+	  // BAD_CONDITIONED: 梯度状态不好
+	  // GOOD：完成核线搜索
 		if (this->status_ == PointStatus::OUTLIER)
 		{
 			return ObserveStatus::SKIPPED;
@@ -184,12 +189,13 @@ namespace dsm
 		const auto& settings = Settings::getInstance();
 		const auto& calib = GlobalCalibration::getInstance();
 
-		// image size
+		// image size；获取当前帧的一些标定参数
 		const Eigen::Matrix3f& K = calib.matrix3f(this->detectedLevel_);
 		const Eigen::Matrix3f& Kinv = calib.invMatrix3f(this->detectedLevel_);
 		const int32_t width = calib.width(this->detectedLevel_);
 		const int32_t height = calib.height(this->detectedLevel_);
 
+		// 当前帧的误差分布
 		// frame error distribution
 		const std::shared_ptr<IDistribution> errorDistribution = other->errorDistribution();
 
@@ -210,8 +216,10 @@ namespace dsm
 		// 1) epipolar geometry
 		float epiLineLength;
 		Eigen::Vector2f epiLineDir, pxStart, pxEnd;
+		// 根据核线几何
 		const ObserveStatus epiLineStatus = this->calcEpipolarGeometry(KRray, Kt, epiLineDir, epiLineLength, pxStart, pxEnd);
 
+		// 根据核线几何的状态
 		if (epiLineStatus != ObserveStatus::GOOD)
 		{
 			if (epiLineStatus == ObserveStatus::BAD_EPILINE)
@@ -233,12 +241,13 @@ namespace dsm
 		const float diry2 = epiLineDir[1] * epiLineDir[1];
 		const float dirxy = epiLineDir[0] * epiLineDir[1];
 
-		// cosine between gradient and epipolar line
+		// cosine between gradient and epipolar line；角度越大，cos越小 -- > 角度越大越不好
 		const float gradDotLine2 = (dirx2*this->gx2 + 2.f*dirxy*this->gxy + diry2*this->gy2);
 
-		// matching uncertainty
+		// matching uncertainty； cos越小，disparty越大
 		const float disparitySigma = sqrt(settings.epiLineSigma / (gradDotLine2 + std::numeric_limits<float>::epsilon()));
 
+		// disparty越大，越不好
 		// check bad conditioned configuration if [-2*disparitySigma, 2*disparitySigma] is bigger than the epipolar line
 		if (disparitySigma*4.f > epiLineLength)
 		{
@@ -247,7 +256,7 @@ namespace dsm
 
 		const Eigen::Matrix3f KRKinv = KR * Kinv;
 
-		// 3) Do epipolar line search
+		// 3) Do epipolar line search；核线搜索的次数，与核线搜索的长度是一样的。就是逐个像素的去试验。
 		const int numEvaluations = (int)(epiLineLength + 0.5f);
 
 		const float* const newImage = other->image(this->detectedLevel_);
@@ -297,15 +306,17 @@ namespace dsm
 				const float newColor = bilinearInterpolation(newImage, pt2d[0], pt2d[1], width);
 				const float errorj = this->weights_[idx] * (this->color_[idx] - light_a*newColor - light_b);
 
+				// 把这一个块的差值都相加起来
 				error2 += errorj*errorj;
 
-				// bad pixels
+				// bad pixels；如果两个patch的灰度值，差异超过20，那么这个点就当做是外点
 				if (fabs(errorj) > settings.stereoMaxEnergy)
 				{
 					numBad++;
 				}
 			}
 
+			// 相当于找一个error的最小值
 			if (error2 < bestMatchError)
 			{
 				// set best.
@@ -321,7 +332,8 @@ namespace dsm
 			px += epiLineDir;
 		}
 
-		// 4) Check if many bad pixels
+    //
+		// 4) Check if many bad pixels; 如果核线上，最佳匹配错误点数目，大于了一个阈值，就要把这个点设置为bad的观测
 		if (bestMatchNumBad / Pattern::size() > settings.maxPixelOutlier)
 		{
 			return this->setBadObservation();
@@ -334,9 +346,10 @@ namespace dsm
 		std::fill(start, end, std::numeric_limits<float>::max());
 		const float secondBestMatchError = *std::min_element(std::begin(errors), std::end(errors));
 
-		// quality with the second best match
+		// quality with the second best match；倒数第二名误差越大，这个匹配质量越高
 		const float newQuality = secondBestMatchError / bestMatchError;
-			
+
+		// 根据公式计算出逆深度的一个不确定性
 		// 6) inverse depth uncertainty
 		// Eq. 8 and 9 from "Probabilistic Semi-Dense Mapping from Highly Accurate Feature-Based Monocular SLAM" Mur-Artal et al. 2015
 		float iDepthSigmaHypo;
@@ -375,6 +388,7 @@ namespace dsm
 		// baseline in pixels
 		const float baseline = (bestMatch - pxInf).norm();
 
+		// 对于一个点来说，它会不断被新的帧观察到，所以要不断更新baseline; 可以看出它并没有保存当前这个frame id; 所以他并不需要？
 		if (baseline > this->matchBaseline_)
 		{
 			this->iDepth_ = bestMatchIDepth;
@@ -397,6 +411,10 @@ namespace dsm
 	CandidatePoint::ObserveStatus CandidatePoint::calcEpipolarGeometry(const Eigen::Vector3f& KRray, const Eigen::Vector3f& Kt, Eigen::Vector2f& epiLineDir,
 																	   float& epiLineLength, Eigen::Vector2f& pxStart, Eigen::Vector2f& pxEnd) const
 	{
+	  // 计算核线几何：
+	  // BAD_EPILINE: 不好的核线，iDepthMax<0这种情况目前不太可能，忽略； 使用iDepthMax投影后，不在新的图像范围
+	  // OOB: 不在图像范围，使用iDepthMin投影，不在范围；算出来的pxEnd不在图像范围内
+	  // GOOD: 串行走到最后
 		const auto& settings = Settings::getInstance();
 		const auto& calib = GlobalCalibration::getInstance();
 		const int width = calib.width(this->detectedLevel_);
@@ -442,12 +460,12 @@ namespace dsm
 			return ObserveStatus::BAD_EPILINE;
 		}
 
-		// epipolar line
+		// epipolar line；计算出核线的方向
 		epiLineDir = pxEnd - pxStart;
 		epiLineLength = epiLineDir.norm();
 		epiLineDir /= (epiLineLength + std::numeric_limits<float>::epsilon());
 
-		// limit search range
+		// limit search range；最大搜索距离30个像素
 		const float maxSearchRange = sqrtf((float)width*width + (float)height*height)*settings.maxEplLengthFactor;
 		if (this->status_ == PointStatus::INITIALIZED)
 		{
@@ -467,6 +485,7 @@ namespace dsm
 		}
 		else
 		{
+		  // 如果这个点已经初始化了，那么就直接得到pxEnd,pxStart
 			// set maximum search range
 			pxEnd = pxStart + maxSearchRange*epiLineDir;
 			epiLineLength = maxSearchRange;
