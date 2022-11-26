@@ -36,7 +36,7 @@ saveOptErrorDist = false
 
 blockUntilMapped = false
 singleThreaded = true
-mappingThreads = 6
+mappingThreads = 1
 
 minimizeMemory = false
 

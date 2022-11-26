@@ -181,6 +181,9 @@ namespace dsm
 	  // BAD_EPILINE: 核线状态不好
 	  // BAD_CONDITIONED: 梯度状态不好
 	  // GOOD：完成核线搜索
+	  std::string debug_str = "";
+	  std::stringstream debug_stream;
+
 		if (this->status_ == PointStatus::OUTLIER)
 		{
 			return ObserveStatus::SKIPPED;
@@ -211,7 +214,9 @@ namespace dsm
 		const Eigen::Matrix3f KR = K * rot;
 		const Eigen::Vector3f Kt = K * trans;
 
+		// 将ref 上的一个三维观测，转换到other帧上来：
 		const Eigen::Vector3f KRray = KR*this->ray_;
+		debug_stream << "ray_ " << this->ray_.transpose();
 
 		// 1) epipolar geometry
 		float epiLineLength;
@@ -404,6 +409,8 @@ namespace dsm
 			}
 		}
 
+		std::cout << __FUNCTION__ <<
+
 		this->status_ = PointStatus::INITIALIZED;
 		return this->lastObservation_ = ObserveStatus::GOOD;
 	}
@@ -496,6 +503,10 @@ namespace dsm
 		{
 			return ObserveStatus::OOB;
 		}
+
+    {
+      std::cout << __FUNCTION__ << " len " << epiLineLength << " start " <<pxStart.transpose() << " end " << pxEnd.transpose() << "\n";
+    }
 
 		return ObserveStatus::GOOD;
 	}
